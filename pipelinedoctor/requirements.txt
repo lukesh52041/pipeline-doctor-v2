@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+pytest
+tinyfish>=0.11.0

@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PipelineDoctor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#eef1f0; --card:#fbfcfb; --ink:#14201c; --muted:#5a6a64; --line:#c9d2cf;
+  --accent:#1f6f5c; --accent-ink:#ffffff; --fail:#b3261e;
+  --log-bg:#17202a; --log-ink:#c9d4dc; --log-dim:#6f7f8c; --hit-bg:#4a3510; --hit-bar:#f2a93b; --hit-ink:#ffe8bd;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{--paper:#0f1513; --card:#161e1b; --ink:#e6ece9; --muted:#9aaba4; --line:#2b3733;
+    --accent:#5fc4a8; --accent-ink:#06231b; --fail:#ff8a80; --log-bg:#0b1017;}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.55 var(--sans)}
+a,button,textarea,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+header{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:center;padding:18px clamp(16px,4vw,48px);border-bottom:1px solid var(--line)}
+.brand{font-weight:600;font-size:20px;letter-spacing:-.01em;margin-right:auto}
+nav{display:flex;gap:4px}
+nav button{background:none;border:0;padding:8px 14px;border-radius:6px;cursor:pointer;color:var(--muted)}
+nav button[aria-selected=true]{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.key{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px}
+.key input{width:150px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card)}
+main{padding:clamp(16px,3vw,40px) clamp(16px,4vw,48px);max-width:1280px;margin:0 auto}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.12;letter-spacing:-.02em;margin:0 0 6px;max-width:20ch}
+.lede{color:var(--muted);margin:0 0 24px;max-width:60ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.bar .spacer{margin-left:auto}
+.chip{border:1px solid var(--line);background:none;border-radius:999px;padding:4px 12px;cursor:pointer;font-size:14px}
+.chip:hover{border-color:var(--accent)}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:9px 18px;font-weight:600;cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line);font-weight:500}
+.btn:disabled{opacity:.55;cursor:progress}
+textarea.log{width:100%;min-height:420px;resize:vertical;background:var(--log-bg);color:var(--log-ink);border:0;border-radius:8px;padding:12px;font:13px/1.5 var(--mono)}
+.viewer{margin:0;padding:8px 0;list-style:none;background:var(--log-bg);color:var(--log-ink);border-radius:8px;max-height:560px;overflow:auto;font:13px/1.5 var(--mono)}
+.viewer li{display:grid;grid-template-columns:52px 1fr;border-left:4px solid transparent;white-space:pre-wrap;word-break:break-word}
+.viewer .n{color:var(--log-dim);text-align:right;padding-right:12px;user-select:none}
+.viewer li.hit{background:var(--hit-bg);border-left-color:var(--hit-bar);color:var(--hit-ink)}
+.viewer li.hit .n{color:var(--hit-bar)}
+.result h2{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:14px;margin-bottom:12px}
+.tag{border:1px solid var(--line);border-radius:4px;padding:0 8px;font-size:13px}
+.conf{display:flex;gap:3px;margin:8px 0 14px}
+.conf i{width:100%;max-width:28px;height:8px;border-radius:2px;background:var(--line)}
+.conf i.on{background:var(--accent)}
+.conf.low i.on{background:var(--fail)}
+h3{font-size:15px;margin:18px 0 6px}
+ul.plain,ol.plain{margin:0;padding-left:20px}
+.ev{display:block;width:100%;text-align:left;background:none;border:1px solid var(--line);border-radius:6px;padding:6px 10px;margin-bottom:6px;cursor:pointer;font:13px/1.4 var(--mono);overflow-wrap:anywhere}
+.ev:hover{border-color:var(--hit-bar)}
+.ev b{color:var(--muted);font-weight:500;margin-right:8px}
+pre.diff{background:var(--log-bg);color:var(--log-ink);padding:10px 12px;border-radius:8px;overflow:auto;font:13px/1.5 var(--mono);margin:0}
+.empty{color:var(--muted)}
+.error{color:var(--fail);margin:8px 0 0}
+label{display:block;font-size:14px;color:var(--muted);margin:10px 0 4px}
+input.field,textarea.field{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.factor{display:grid;grid-template-columns:150px 1fr 56px;gap:10px;align-items:center;margin:8px 0;font-size:14px}
+.meter{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.meter i{display:block;height:100%;background:var(--accent)}
+.big{font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:no-preference){.viewer{scroll-behavior:smooth}}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">PipelineDoctor</span>
+  <nav role="tablist" aria-label="Sections">
+    <button role="tab" aria-selected="true" data-tab="diagnose">Diagnose</button>
+    <button role="tab" aria-selected="false" data-tab="risk">Pull request risk</button>
+    <button role="tab" aria-selected="false" data-tab="reliability">Reliability</button>
+  </nav>
+  <label class="key">API key <input id="key" type="password" autocomplete="off" placeholder="optional"></label>
+</header>
+
+<main>
+<section id="tab-diagnose">
+  <h1>Find out why the build failed</h1>
+  <p class="lede">Paste a failed CI log. You get the cause, the log lines that prove it, and a fix you can apply. Secrets are removed before anything is stored.</p>
+  <div class="grid">
+    <div class="card">
+      <div class="bar" id="samples" aria-label="Sample logs"><span class="empty">Try a sample:</span></div>
+      <textarea id="log" class="log" spellcheck="false" aria-label="CI log" placeholder="Paste the log from the first failing step"></textarea>
+      <ol id="viewer" class="viewer" hidden></ol>
+      <div class="bar" style="margin:12px 0 0">
+        <button id="go" class="btn">Diagnose</button>
+        <button id="edit" class="btn ghost" hidden>Edit log</button>
+        <label style="margin:0;display:flex;gap:6px;align-items:center"><input id="llm" type="checkbox" checked> Use AI for unclear logs</label>
+        <label style="margin:0;display:flex;gap:6px;align-items:center"><input id="tinyfish" type="checkbox" checked> Enable TinyFish Research</label>
+        <span id="err" class="error spacer" role="alert"></span>
+      </div>
+    </div>
+    <div class="card result" id="result" aria-live="polite"><p class="empty">The diagnosis appears here. Pick a sample to see how it works.</p></div>
+  </div>
+</section>
+
+<section id="tab-risk" hidden>
+  <h1>How risky is this pull request?</h1>
+  <p class="lede">List the changed files, one per line. Every point in the score is explained.</p>
+  <div class="grid">
+    <div class="card">
+      <label for="rrepo">Repository</label><input id="rrepo" class="field" value="demo/web">
+      <label for="rfiles">Changed files</label>
+      <textarea id="rfiles" class="field" rows="8">.github/workflows/ci.yml
+package.json
+src/checkout/cart.ts
+src/checkout/pay.ts</textarea>
+      <div class="row"><div><label for="radd">Lines added</label><input id="radd" class="field" type="number" min="0" value="240"></div>
+      <div><label for="rdel">Lines deleted</label><input id="rdel" class="field" type="number" min="0" value="60"></div></div>
+      <p><button id="riskgo" class="btn">Score this change</button> <span id="rerr" class="error"></span></p>
+    </div>
+    <div class="card" id="riskout"><p class="empty">The score appears here.</p></div>
+  </div>
+</section>
+
+<section id="tab-reliability" hidden>
+  <h1>Reliability this week</h1>
+  <p class="lede">Recurring causes, flaky tests, and the minutes they cost. Needs the lead role when API keys are enabled.</p>
+  <div class="card">
+    <div class="bar"><label for="prepo" style="margin:0">Repository</label>
+      <input id="prepo" class="field" style="max-width:260px" value="demo/shop">
+      <button id="repgo" class="btn">Load report</button><span id="perr" class="error"></span></div>
+    <div id="repout"><p class="empty">Diagnose both flaky samples first, then load the report for demo/shop.</p></div>
+  </div>
+</section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let meta = {};
+$("#key").value = localStorage.getItem("pd_key") || "";
+$("#key").addEventListener("change", e => localStorage.setItem("pd_key", e.target.value.trim()));
+
+async function api(path, body) {
+  const headers = {"Content-Type": "application/json"};
+  const key = $("#key").value.trim();
+  if (key) headers["X-API-Key"] = key;
+  const res = await fetch(path, body ? {method: "POST", headers, body: JSON.stringify(body)} : {headers});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : `Request failed (${res.status})`);
+  return data;
+}
+
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x === b));
+  ["diagnose", "risk", "reliability"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
+}));
+
+api("/api/samples").then(list => list.forEach(s => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.textContent = s.title;
+  b.onclick = async () => {
+    const d = await api("/api/samples/" + s.id);
+    $("#log").value = d.log; meta = d.meta; showEditor();
+  };
+  $("#samples").appendChild(b);
+})).catch(() => {});
+
+api("/api/health").then(h => {
+  if (h && typeof h.tinyfish_enabled !== "undefined") {
+    $("#tinyfish").checked = Boolean(h.tinyfish_enabled);
+  }
+}).catch(() => {});
+
+function showEditor() { $("#log").hidden = false; $("#viewer").hidden = true; $("#edit").hidden = true; }
+$("#edit").onclick = showEditor;
+
+function renderViewer(text, hits) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  const cap = 5000, hitSet = new Set(hits);
+  $("#viewer").innerHTML = lines.slice(0, cap).map((l, i) =>
+    `<li id="L${i + 1}" class="${hitSet.has(i + 1) ? "hit" : ""}"><span class="n">${i + 1}</span><span>${esc(l) || " "}</span></li>`).join("")
+    + (lines.length > cap ? `<li><span class="n"></span><span>Showing the first ${cap} lines.</span></li>` : "");
+  $("#log").hidden = true; $("#viewer").hidden = false; $("#edit").hidden = false;
+}
+
+function jump(n) {
+  const el = document.getElementById("L" + n);
+  if (el) { $("#viewer").scrollTop = el.offsetTop - 120; }
+}
+
+$("#go").onclick = async () => {
+  const log = $("#log").value;
+  $("#err").textContent = "";
+  if (!log.trim()) { $("#err").textContent = "Paste a log first."; return; }
+  $("#go").disabled = true; $("#go").textContent = "Diagnosing";
+  try {
+    const d = await api("/api/diagnose", {log, ...meta, use_llm: $("#llm").checked, use_research: $("#tinyfish").checked});
+    renderViewer(log, d.evidence.map(e => e.line));
+    renderResult(d);
+    if (d.evidence[0]) jump(d.evidence[0].line);
+  } catch (e) { $("#err").textContent = e.message; }
+  $("#go").disabled = false; $("#go").textContent = "Diagnose";
+};
+
+function renderResearchBox(d) {
+  const box = $("#research-box");
+  if (!box) return;
+  const defaultQuery = (d.research && d.research.query) ? d.research.query : (d.title ? d.title + " troubleshooting" : "CI pipeline failure troubleshooting");
+  if (d.research) {
+    renderResearchContent(box, d.research, defaultQuery);
+  } else {
+    box.innerHTML = `
+      <p class="empty">TinyFish research was not run for this diagnosis. You can trigger external research manually below.</p>
+      <div class="bar" style="margin-top:10px;gap:8px">
+        <input id="res-query-input" class="field" style="max-width:340px;padding:6px 8px;font-size:13px" value="${esc(defaultQuery)}" placeholder="Search query">
+        <button id="res-retry-btn" class="btn" style="padding:6px 14px;font-size:13px">Search with TinyFish</button>
+      </div>`;
+    $("#res-retry-btn").onclick = () => executeManualResearch($("#res-query-input").value);
+  }
+}
+
+function renderResearchContent(box, res, query) {
+  const queryUsed = res.query || query || "";
+  let html = `
+    <div class="meta" style="margin-bottom:8px">
+      <span><b>Search Query:</b> <code>${esc(queryUsed)}</code></span>
+      <span><b>Status:</b> ${res.success ? "Search completed" : "Search failed"}</span>
+    </div>`;
+
+  if (res.success) {
+    const results = res.results || [];
+    if (results.length > 0) {
+      html += `<p style="margin:8px 0 6px;font-weight:500;font-size:14px">Found relevant sources:</p>
+      <ol class="plain" style="padding-left:18px">`;
+      results.forEach(r => {
+        const safeUrl = (r.url && /^https?:\/\//i.test(r.url)) ? esc(r.url) : "#";
+        html += `
+          <li style="margin-bottom:12px">
+            <div><strong>${esc(r.title || "Relevant Documentation")}</strong> <span class="tag">${esc(r.source || "Web")}</span></div>
+            <p style="margin:3px 0 6px;font-size:13px;color:var(--muted)">${esc(r.description || "No description provided.")}</p>
+            <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="btn ghost" style="display:inline-block;padding:3px 10px;font-size:12px;text-decoration:none">Open Source &rarr;</a>
+          </li>`;
+      });
+      html += `</ol>`;
+    } else {
+      html += `<p class="empty">${esc(res.message || "No relevant research results found.")}</p>`;
+    }
+  } else {
+    html += `<p class="error">${esc(res.error || "External research is temporarily unavailable. Your PipelineDoctor diagnosis is still available.")}</p>`;
+  }
+
+  html += `
+    <div class="bar" style="margin-top:12px;gap:8px">
+      <input id="res-query-input" class="field" style="max-width:340px;padding:6px 8px;font-size:13px" value="${esc(queryUsed)}" placeholder="Search query">
+      <button id="res-retry-btn" class="btn ghost" style="padding:6px 14px;font-size:13px">Retry Search</button>
+    </div>`;
+
+  box.innerHTML = html;
+  $("#res-retry-btn").onclick = () => executeManualResearch($("#res-query-input").value);
+}
+
+async function executeManualResearch(query) {
+  const box = $("#research-box");
+  if (!box) return;
+  const q = (query || "").trim();
+  if (!q) {
+    box.innerHTML = `
+      <p class="error">Query cannot be empty.</p>
+      <div class="bar" style="margin-top:10px;gap:8px">
+        <input id="res-query-input" class="field" style="max-width:340px;padding:6px 8px;font-size:13px" value="" placeholder="Search query">
+        <button id="res-retry-btn" class="btn ghost" style="padding:6px 14px;font-size:13px">Retry Search</button>
+      </div>`;
+    $("#res-retry-btn").onclick = () => executeManualResearch($("#res-query-input").value);
+    return;
+  }
+
+  box.innerHTML = `<p class="empty" style="color:var(--accent)">Searching relevant technical resources with TinyFish...</p>`;
+  try {
+    const res = await api("/api/research", {query: q});
+    renderResearchContent(box, res, q);
+  } catch (err) {
+    box.innerHTML = `
+      <p class="error">${esc(err.message || "Unable to connect to TinyFish. Try again.")}</p>
+      <div class="bar" style="margin-top:10px;gap:8px">
+        <input id="res-query-input" class="field" style="max-width:340px;padding:6px 8px;font-size:13px" value="${esc(q)}" placeholder="Search query">
+        <button id="res-retry-btn" class="btn ghost" style="padding:6px 14px;font-size:13px">Retry Search</button>
+      </div>`;
+    $("#res-retry-btn").onclick = () => executeManualResearch($("#res-query-input").value);
+  }
+}
+
+function renderResult(d) {
+  const on = Math.round(d.confidence * 10);
+  const red = d.redaction.total;
+  $("#result").innerHTML = `
+    <h2>${esc(d.title)}</h2>
+    <div class="meta"><span class="tag">${esc(d.category)}</span>
+      <span>${Math.round(d.confidence * 100)}% confident</span>
+      <span>found by ${esc(d.source)} in ${d.took_ms} ms</span></div>
+    <div class="conf ${d.status === "uncertain" ? "low" : ""}" role="img" aria-label="Confidence ${Math.round(d.confidence * 100)} percent">
+      ${Array.from({length: 10}, (_, i) => `<i class="${i < on ? "on" : ""}"></i>`).join("")}</div>
+    ${d.status === "uncertain" ? `<p class="error">Not sure about this one. Treat it as a lead, not an answer.</p>` : ""}
+    <p>${esc(d.root_cause)}</p>
+    <h3>Evidence</h3>
+    ${d.evidence.map(e => `<button class="ev" data-line="${e.line}"><b>line ${e.line}</b>${esc(e.text)}</button>`).join("") || `<p class="empty">No evidence lines found.</p>`}
+    ${d.fix_steps.length ? `<h3>How to fix it</h3><ol class="plain">${d.fix_steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
+    ${d.suggested_diff ? `<h3>Suggested change</h3><pre class="diff">${esc(d.suggested_diff)}</pre>` : ""}
+    ${d.next_checks.length ? `<h3>Check next</h3><ul class="plain">${d.next_checks.map(s => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
+    ${d.other_candidates && d.other_candidates.length ? `<h3>Other possibilities</h3><ul class="plain">${d.other_candidates.map(c => `<li>${esc(c.title)} (${Math.round(c.confidence * 100)}%)</li>`).join("")}</ul>` : ""}
+    <h3>Research & Solutions</h3>
+    <div id="research-box"></div>
+    <h3>Privacy</h3>
+    <p class="empty">${red ? `${red} sensitive value${red > 1 ? "s" : ""} removed before analysis (${Object.entries(d.redaction.by_type).map(([k, v]) => `${v} ${esc(k.replace(/_/g, " "))}`).join(", ")}).` : "No secrets or personal data found."}</p>`;
+  $("#result").querySelectorAll(".ev").forEach(b => b.onclick = () => jump(b.dataset.line));
+  renderResearchBox(d);
+}
+
+$("#riskgo").onclick = async () => {
+  $("#rerr").textContent = "";
+  try {
+    const files = $("#rfiles").value.split("\n").map(s => s.trim()).filter(Boolean);
+    const r = await api("/api/risk", {repo: $("#rrepo").value, files, additions: +$("#radd").value || 0, deletions: +$("#rdel").value || 0});
+    $("#riskout").innerHTML = `<div class="big">${r.score}<span class="empty" style="font-size:18px"> / 100</span></div>
+      <p><span class="tag">${r.level} risk</span></p>
+      ${r.factors.map(f => `<div class="factor"><span>${esc(f.name)}</span>
+        <span class="meter" title="${esc(f.detail)}"><i style="width:${f.max ? (f.points / f.max) * 100 : 0}%"></i></span>
+        <span>${f.points}/${f.max}</span></div><div class="empty" style="margin:-4px 0 4px;font-size:13px">${esc(f.detail)}</div>`).join("")}
+      ${r.advice.length ? `<h3>Before you merge</h3><ul class="plain">${r.advice.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}`;
+  } catch (e) { $("#rerr").textContent = e.message; }
+};
+
+$("#repgo").onclick = async () => {
+  $("#perr").textContent = "";
+  try {
+    const r = await api("/api/report?repo=" + encodeURIComponent($("#prepo").value));
+    $("#repout").innerHTML = `
+      <div class="meta"><span>${r.runs} runs</span><span>${r.failed_runs} failed (${Math.round(r.failure_rate * 100)}%)</span>
+        <span>About ${r.minutes_avoidable_if_top3_fixed} min of failed pipeline time came from the top 3 causes</span></div>
+      <h3>Fix these first</h3>
+      ${r.fix_list.length ? `<table><tr><th>Cause</th><th>Category</th><th>Times</th><th>Minutes lost</th></tr>${r.fix_list.map(f =>
+        `<tr><td>${esc(f.title)}</td><td>${esc(f.category)}</td><td>${f.occurrences}</td><td>${f.minutes_lost}</td></tr>`).join("")}</table>` : `<p class="empty">No failures recorded for this repository yet.</p>`}
+      <h3>Flaky tests</h3>
+      ${r.flaky_tests.length ? `<table><tr><th>Test</th><th>Why it's flagged</th><th>Minutes wasted</th></tr>${r.flaky_tests.map(f =>
+        `<tr><td>${esc(f.test)}</td><td>${esc(f.reason)}</td><td>${f.minutes_wasted}</td></tr>`).join("")}</table>` : `<p class="empty">No flaky tests detected.</p>`}`;
+  } catch (e) { $("#perr").textContent = e.message; }
+};
+</script>
+</body>
+</html>
